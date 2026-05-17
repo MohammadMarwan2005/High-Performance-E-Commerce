@@ -61,7 +61,7 @@ intentional and should be called out, not hidden.
 
 ## STEPS
 
-### [ ] Step 1 — Project skeleton + persistence
+### [x] Step 1 — Project skeleton + persistence
 
 **Goal:** A running Spring Boot app with PostgreSQL and the core entities.
 
