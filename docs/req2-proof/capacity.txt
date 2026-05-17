@@ -1,0 +1,49 @@
+=== Capacity Proof — Requirement 2 ===
+Generated: 2026-05-18T01:55:29.973188585
+
+Configured bounds (see docs/architecture-notes.md):
+  Tomcat threads.max:        50
+  Tomcat accept-count:       100
+  Tomcat max-connections:    200
+  Hikari maximum-pool-size:  10
+  Hikari connection-timeout: 5000 ms
+
+Load:
+  Concurrent clients:        100  (all unblocked by one latch)
+  Endpoint:                  POST /orders
+  Per-client work:           order 1 unit of its own product
+                             (no @Version contention; isolates
+                             the resource layer)
+
+Outcome:
+  Successful (2xx):          100
+  Failed (non-2xx + error):  0
+  Wall clock:                1237 ms
+  Throughput:                80.8 req/s
+
+Outcome breakdown:
+    HTTP 201                       100
+
+Latency (ms, server-observed end-to-end):
+  min:   1067
+  p50:   1082
+  p95:   1175
+  p99:   1180
+  max:   1181
+
+Interpretation:
+  The system absorbed 100 concurrent requests within the
+  configured bounds. Requests beyond Tomcat threads.max=50 sat
+  in the accept queue (capacity 100) and were served as
+  worker threads freed up; latency variance reflects that
+  queueing.
+
+  The DB layer is the narrower bottleneck: only 10 transactions
+  can hold a Hikari connection at once. With 100 in-flight
+  orders that means at any instant up to 90 are queued at the
+  pool; their wait time is bounded by connection-timeout=5s
+  (above which the request fails fast rather than hanging).
+
+  Result: bounded latency tail, no thread-leak, no
+  out-of-memory, no silent capacity overrun — which is what
+  Requirement 2 asks the design to guarantee.

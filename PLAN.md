@@ -114,7 +114,7 @@ one success and stock = 0.
 
 ---
 
-### [ ] Step 4 — Resource management & capacity control (Req 2)
+### [x] Step 4 — Resource management & capacity control (Req 2)
 
 **Goal:** Bound parallelism so the system stays stable.
 

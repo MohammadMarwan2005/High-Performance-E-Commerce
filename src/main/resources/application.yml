@@ -7,6 +7,14 @@ spring:
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: ecommerce-hikari
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 5000
+      idle-timeout: 30000
+      max-lifetime: 600000
+      leak-detection-threshold: 30000
 
   jpa:
     hibernate:
@@ -19,6 +27,13 @@ spring:
 
 server:
   port: 8080
+  tomcat:
+    threads:
+      max: 50
+      min-spare: 10
+    accept-count: 100
+    max-connections: 200
+    connection-timeout: 5s
 
 springdoc:
   swagger-ui:
