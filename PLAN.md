@@ -80,7 +80,7 @@ intentional and should be called out, not hidden.
 
 ---
 
-### [ ] Step 2 — Checkout service with optimistic locking (Req 1 core)
+### [x] Step 2 — Checkout service with optimistic locking (Req 1 core)
 
 **Goal:** A correct single-order checkout that decrements stock safely.
 
