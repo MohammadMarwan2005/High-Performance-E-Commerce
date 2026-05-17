@@ -1,0 +1,26 @@
+=== Concurrency Proof — WITH optimistic locking + retry ===
+Generated: 2026-05-18T01:24:51.293776417
+Mode:      LockedCheckoutService → LockedCheckoutAttempt (@Version on Product, 3 retries)
+
+Setup:
+  Threads:        50 (concurrent)
+  Initial stock:  1
+  Quantity each:  1
+  Total demand:   50
+  Available:      1
+
+Result:
+  Successful orders:   1
+  Failed (no stock):   49
+  Failed (conflict):   0
+  Failed (other):      0
+  Final stock:         0
+  Elapsed:             36 ms
+
+Oversell:  NO — invariant held
+
+Interpretation:
+  Hibernate's UPDATE ... WHERE id=? AND version=? lets exactly one
+  transaction win the race on the row. Losers either retry (and then
+  observe stock=0, failing with "insufficient stock") or exhaust the
+  retry budget and abort with a conflict.

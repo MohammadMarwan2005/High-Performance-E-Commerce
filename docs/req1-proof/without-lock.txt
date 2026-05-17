@@ -1,0 +1,26 @@
+=== Concurrency Proof — WITHOUT optimistic locking ===
+Generated: 2026-05-18T01:24:51.37657013
+Mode:      NaiveCheckoutService (raw SQL, no @Version)
+
+Setup:
+  Threads:        50 (concurrent)
+  Initial stock:  1
+  Quantity each:  1
+  Total demand:   50
+  Available:      1
+
+Result:
+  Successful orders:   10
+  Failed (no stock):   40
+  Failed (conflict):   0
+  Failed (other):      0
+  Final stock:         0
+  Elapsed:             45 ms
+
+Oversell:  YES — bug demonstrated
+
+Interpretation:
+  Multiple threads observed stock=1 simultaneously, all passed the
+  check, all wrote a decremented value. With no version check the
+  late writer overwrites the early writer (lost update). Each "success"
+  is a real order receipt that the store cannot fulfill.

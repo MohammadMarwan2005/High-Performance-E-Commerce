@@ -97,7 +97,7 @@ intentional and should be called out, not hidden.
 
 ---
 
-### [ ] Step 3 — Concurrency proof harness (Req 1 evidence — graded heavily)
+### [x] Step 3 — Concurrency proof harness (Req 1 evidence — graded heavily)
 
 **Goal:** Demonstrate the race condition AND its fix with numbers.
 
