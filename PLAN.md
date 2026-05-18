@@ -162,7 +162,7 @@ populated correctly.
 
 ---
 
-### [ ] Step 7 — Load distribution (Req 5)
+### [x] Step 7 — Load distribution (Req 5)
 
 **Goal:** Simulate multi-server distribution with a justified strategy.
 
@@ -196,8 +196,8 @@ from the docs alone.
 
 ## Definition of Done for Phase 1
 
-- [ ] Requirements 1–5 implemented and individually demonstrable.
-- [ ] Req 1 proof (without-lock vs with-lock) saved as evidence.
-- [ ] Every configuration number has a written justification.
-- [ ] Each step committed by me, message `✅ <step name>`, no AI authorship.
-- [ ] Everything runs from `docker compose` for the local→server move.
+- [x] Requirements 1–5 implemented and individually demonstrable.
+- [x] Req 1 proof (without-lock vs with-lock) saved as evidence.
+- [x] Every configuration number has a written justification.
+- [x] Each step committed by me, message `✅ <step name>`, no AI authorship.
+- [x] Everything runs from `docker compose` for the local→server move.
