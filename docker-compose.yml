@@ -113,7 +113,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
-      - "127.0.0.1:8000:80"     # main entry point through load balancer
+      - "0.0.0.0:8005:80"       # main entry point through load balancer
 
 volumes:
   postgres_data:
