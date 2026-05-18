@@ -48,6 +48,7 @@ server:
     connection-timeout: 5s
 
 app:
+  instance-id: ${INSTANCE_ID:local}
   rabbitmq:
     exchange: orders
     invoice-queue: orders.invoice

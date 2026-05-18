@@ -1,0 +1,14 @@
+.git
+.gitignore
+.gitattributes
+.idea
+.vscode
+*.iml
+target
+.mvn/wrapper/maven-wrapper.jar
+mvnw
+mvnw.cmd
+HELP.md
+docs
+README.md
+PLAN.md

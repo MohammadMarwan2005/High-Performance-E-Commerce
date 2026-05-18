@@ -157,7 +157,92 @@ Specifically:
 
 ---
 
-## 6. Tunings reserved for production (deliberately not done here)
+## 6. Load distribution — Requirement 5
+
+### Setup
+
+Two identical app instances (`app1`, `app2`) sit behind an Nginx reverse proxy.
+The entry point for all traffic is Nginx on port **8000**. Each instance is also
+reachable directly (ports 8006/8007) for debugging.
+
+```
+client → Nginx :8000 → round-robin → app1 :8006
+                                   → app2 :8007
+```
+
+Both instances share the same Postgres database and the same RabbitMQ broker.
+
+### Why round-robin?
+
+Nginx's default upstream algorithm is **round-robin**: request 1 → app1,
+request 2 → app2, request 3 → app1, and so on.
+
+This works well here because:
+
+- Every request is **stateless** — no session affinity is needed. All
+  persistent state lives in Postgres; the HTTP layer carries no per-user
+  memory between requests.
+- Processing time is similar across requests (no wildly slow outliers), so
+  the load stays naturally even. If processing time varied significantly,
+  `least_conn` (route to whichever instance has the fewest in-flight
+  connections) would be more appropriate.
+
+### Why instances must be stateless
+
+An instance is stateless when **everything that survives the request lives
+outside the process**. In this service:
+
+| Concern | Storage |
+|---|---|
+| Orders, products, users | PostgreSQL (shared) |
+| Async messages (invoice, notification) | RabbitMQ (shared) |
+| Daily sales summaries | PostgreSQL (shared) |
+| HTTP sessions | none — the API is sessionless |
+| JVM heap | ephemeral — dies with the process |
+
+Because no meaningful state lives in heap, any instance can serve any request.
+Nginx can send request N to app1 and request N+1 to app2, and neither instance
+needs to know about the other.
+
+If session state were stored in-process (e.g. an `HttpSession` kept in a
+`ConcurrentHashMap`), round-robin would break: app2 would not find the session
+created by app1 and the user would see a 401 or lost cart. The standard fix is
+an external session store (Redis), but the better architectural choice is to
+eliminate server-side sessions entirely — which is what this service does.
+
+### Link to Requirement 2 (pool sizing across instances)
+
+When running two instances, the DB connection count **doubles**:
+
+```
+total DB connections = HikariCP pool size × number of instances
+                     = 10  ×  2  =  20
+```
+
+PostgreSQL's default `max_connections` is 100 (and the dev container uses
+that default), so 20 is well within budget. But this number must be tracked
+consciously: adding a third instance brings it to 30, a tenth to 100 — at
+which point new connection attempts would be refused.
+
+The rule: **always size `maximum-pool-size × max_instances ≤ postgres max_connections`**.
+Here that is satisfied with comfortable headroom.
+
+Each instance also runs its own Tomcat thread pool (50 threads) and its own
+async executor. Those are per-JVM resources and do not compound at the DB
+level, only at the CPU level — which is fine, since the host has multiple cores
+and the OS scheduler distributes the load.
+
+### `X-Instance-Id` response header
+
+Every response carries an `X-Instance-Id` header set by
+[InstanceIdFilter](../src/main/java/com/ecommerce/E_Commerce/config/InstanceIdFilter.java).
+The value is read from the `INSTANCE_ID` environment variable (set to `app1`
+or `app2` in docker-compose). Sending several requests through Nginx and
+inspecting this header is the observable proof that load is distributed.
+
+---
+
+## 7. Tunings reserved for production (deliberately not done here)
 
 To keep this file honest about what is and isn't tuned:
 

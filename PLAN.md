@@ -131,7 +131,7 @@ one success and stock = 0.
 
 ---
 
-### [ ] Step 5 — Asynchronous queues (Req 3)
+### [x] Step 5 — Asynchronous queues (Req 3)
 
 **Goal:** Invoice + notification happen off the request path.
 
@@ -147,7 +147,7 @@ and notification appear a moment later.
 
 ---
 
-### [ ] Step 6 — Batch processing (Req 4)
+### [x] Step 6 — Batch processing (Req 4)
 
 **Goal:** Nightly chunked daily-sales summary.
 
