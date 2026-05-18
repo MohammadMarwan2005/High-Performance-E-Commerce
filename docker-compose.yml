@@ -81,7 +81,8 @@ services:
 
   app2:
     profiles: ["prod"]
-    image: ecommerce-app:latest   # no build: directive — reuses the image built by app1
+    image: ecommerce-app:latest   # built by app1; never pulled from a registry
+    pull_policy: never
     container_name: ecommerce-app2
     restart: unless-stopped
     depends_on:
