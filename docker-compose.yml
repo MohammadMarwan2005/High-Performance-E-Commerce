@@ -4,15 +4,17 @@ services:
     container_name: ecommerce-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ecommerce
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-ecommerce}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    # 127.0.0.1 only — no public DB exposure. On the dev laptop this still
+    # reaches the local Spring app at jdbc:postgresql://localhost:5432/...
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ecommerce"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-ecommerce}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -26,8 +28,53 @@ services:
         condition: service_healthy
     environment:
       ADMINER_DEFAULT_SERVER: postgres
+    # Loopback only — reach it from the VPS via SSH tunnel:
+    #   ssh -L 8081:127.0.0.1:8081 root@<vps>
     ports:
-      - "8081:8080"
+      - "127.0.0.1:8081:8080"
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: ecommerce-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    # Only starts when the "prod" profile is requested:
+    #   docker compose --profile prod up -d --build
+    # Local dev keeps running the Spring app natively (./mvnw spring-boot:run).
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ecommerce-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ecommerce}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-guest}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-guest}
+      JAVA_OPTS: "-Xms256m -Xmx512m"
+    ports:
+      - "${APP_PORT:-8006}:8080"
 
 volumes:
   postgres_data:

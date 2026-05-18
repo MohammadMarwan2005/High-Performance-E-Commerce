@@ -2,9 +2,12 @@ package com.ecommerce.E_Commerce.service;
 
 import com.ecommerce.E_Commerce.dto.PlaceOrderRequest;
 import com.ecommerce.E_Commerce.entity.Order;
+import com.ecommerce.E_Commerce.messaging.OrderPlacedEvent;
 import jakarta.persistence.OptimisticLockException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -17,9 +20,18 @@ public class OrderService {
     private static final int MAX_ATTEMPTS = 3;
 
     private final OrderCheckoutTransaction checkoutTransaction;
+    private final RabbitTemplate rabbitTemplate;
 
-    public OrderService(OrderCheckoutTransaction checkoutTransaction) {
+    @Value("${app.rabbitmq.exchange}")
+    private String exchange;
+
+    @Value("${app.rabbitmq.routing-key}")
+    private String routingKey;
+
+    public OrderService(OrderCheckoutTransaction checkoutTransaction,
+                        RabbitTemplate rabbitTemplate) {
         this.checkoutTransaction = checkoutTransaction;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     // NOT @Transactional on purpose. Each attempt below opens its own
@@ -29,7 +41,15 @@ public class OrderService {
     public Order placeOrder(PlaceOrderRequest request) {
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
-                return checkoutTransaction.execute(request);
+                // checkoutTransaction.execute() is @Transactional with no outer
+                // transaction, so its commit happens before this line returns.
+                // Publishing here is therefore guaranteed publish-after-commit:
+                // a rolled-back order never triggers invoice or notification.
+                Order order = checkoutTransaction.execute(request);
+                rabbitTemplate.convertAndSend(exchange, routingKey,
+                        new OrderPlacedEvent(order.getId()));
+                log.info("OrderPlaced event published for order #{}", order.getId());
+                return order;
             } catch (ObjectOptimisticLockingFailureException | OptimisticLockException e) {
                 log.warn("optimistic lock conflict on placeOrder (attempt {}/{}): {}",
                         attempt, MAX_ATTEMPTS, e.getMessage());

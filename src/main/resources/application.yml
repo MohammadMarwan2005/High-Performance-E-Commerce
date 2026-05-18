@@ -35,6 +35,19 @@ server:
     max-connections: 200
     connection-timeout: 5s
 
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+app:
+  rabbitmq:
+    exchange: orders
+    invoice-queue: orders.invoice
+    notification-queue: orders.notification
+    routing-key: order.placed
+
 springdoc:
   swagger-ui:
     path: /swagger
