@@ -25,6 +25,18 @@ spring:
         format_sql: true
     open-in-view: false
 
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false   # jobs run on schedule only, never auto-run at startup
+
 server:
   port: 8080
   tomcat:
@@ -34,12 +46,6 @@ server:
     accept-count: 100
     max-connections: 200
     connection-timeout: 5s
-
-  rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
 
 app:
   rabbitmq:
