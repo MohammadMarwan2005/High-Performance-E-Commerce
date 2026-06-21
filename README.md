@@ -93,6 +93,20 @@ docker exec -i ecommerce-postgres psql -U postgres -d ecommerce < loadtest/integ
 > all Hibernate counters land in one JVM) rather than the two load-balanced ones.
 > Full method and results: **[docs/benchmark/](docs/benchmark/)**.
 
+### One-command before/after (reproduce Req 10)
+
+`loadtest/benchmark.sh` automates the whole thing on the Docker stack: it runs the
+load profile against one instance **with caching off, then on** (via the
+`spring.cache.type` toggle), and prints the before/after table from
+`/admin/db-stats`. It always restores the cache-enabled state on exit.
+
+```bash
+./loadtest/benchmark.sh                 # defaults: app1 @ :8006, 120 VUs
+PEAK_VUS=200 ./loadtest/benchmark.sh
+```
+
+> Run it during low traffic — it loads the instance and restarts it twice.
+
 ## Proofs & evidence
 
 - **Concurrency (Req 1):** `docs/req1-proof/` — 50-thread race; `without-lock.txt`

@@ -93,6 +93,10 @@ services:
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-guest}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-guest}
       SPRING_DATA_REDIS_HOST: redis
+      # Req 10 benchmark toggle: "redis" (default, cache on) or "none" (cache off,
+      # @Cacheable becomes a no-op). loadtest/benchmark.sh flips this to measure
+      # the before/after. Override per-run via SPRING_CACHE_TYPE on the host.
+      SPRING_CACHE_TYPE: ${SPRING_CACHE_TYPE:-redis}
       INSTANCE_ID: app1
       JAVA_OPTS: "-Xms256m -Xmx512m"
     ports:
@@ -120,6 +124,7 @@ services:
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-guest}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-guest}
       SPRING_DATA_REDIS_HOST: redis
+      SPRING_CACHE_TYPE: ${SPRING_CACHE_TYPE:-redis}
       INSTANCE_ID: app2
       JAVA_OPTS: "-Xms256m -Xmx512m"
     ports:
