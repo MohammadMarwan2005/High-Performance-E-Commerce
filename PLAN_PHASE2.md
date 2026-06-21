@@ -168,7 +168,7 @@ reflects it correctly (no stale stock).
 
 ---
 
-### [ ] Step 7 — Re-benchmark + before/after report (Req 10b)
+### [x] Step 7 — Re-benchmark + before/after report (Req 10b)
 
 **Goal:** Prove the improvement with numbers.
 
