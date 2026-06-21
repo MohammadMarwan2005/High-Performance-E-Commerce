@@ -318,3 +318,43 @@ stock-1 product under all three modes:
 Both locking strategies hold the invariant; they differ in *how* (retry vs
 block), which is exactly the trade-off above. Regenerate any time via
 `POST /proofs/req1/concurrency` with `{"mode":"both"}`.
+
+---
+
+## 9. Requirement 8 — Transaction Integrity (ACID), all-or-nothing
+
+The composite checkout — **stock decrement + order create** — runs inside a
+single `@Transactional` boundary ([OrderCheckoutTransaction](../src/main/java/com/ecommerce/E_Commerce/service/OrderCheckoutTransaction.java)).
+ACID atomicity guarantees these two writes either both commit or both roll back;
+the system can never persist a stock decrement without its order, or an order
+without its stock decrement.
+
+### How it's proven
+
+[AcidIntegrityIT](../src/test/java/com/ecommerce/E_Commerce/acid/AcidIntegrityIT.java)
+injects a failure **after** both writes are flushed to the DB but **before** the
+transaction commits, then checks the database is byte-for-byte unchanged:
+
+| Scenario | Attempts | Rolled back | Stock (start → end) | Orders (Δ) | Result |
+|---|---|---|---|---|---|
+| Single failure | 1 | 1 | 100 → 100 | 0 | **INTACT** |
+| Concurrent failures | 50 | 50 | 100 → 100 | 0 | **INTACT** |
+
+Evidence: `docs/req8-acid/acid-rollback.txt`. Run with
+`./mvnw test -Dtest=AcidIntegrityIT`.
+
+### Why the failure is injected *after* the writes
+
+A rollback test only proves anything if there is committed-looking work to undo.
+By flushing the stock decrement and the order insert to the database *first*
+(`saveAndFlush`), the injected exception forces the transaction manager to
+actively reverse real pending changes — not just abandon an empty transaction.
+The "after" timing is what makes it a genuine atomicity proof.
+
+### Link to Requirements 1 and 7
+
+Atomicity (Req 8) and isolation/locking (Req 1 & 7) are complementary ACID
+properties: locking decides *who wins* a concurrent race on a row; the
+transaction boundary decides that each winner's multi-step work is *all-or-
+nothing*. Together they give: exactly one order succeeds, and that order is
+fully consistent.

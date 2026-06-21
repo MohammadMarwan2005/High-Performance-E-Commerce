@@ -101,7 +101,7 @@ sensible durations.
 
 ---
 
-### [ ] Step 3 — ACID transaction integrity demonstration (Req 8)
+### [x] Step 3 — ACID transaction integrity demonstration (Req 8)
 
 **Goal:** Prove the composite operation is all-or-nothing.
 

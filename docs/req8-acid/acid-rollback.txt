@@ -1,0 +1,47 @@
+=== ACID Integrity Proof — CONCURRENT injected failures ===
+Generated: 2026-06-21T04:34:12.500889357
+
+Composite operation: decrement stock + create order, in ONE @Transactional.
+Failure injected AFTER both writes, BEFORE commit.
+
+Setup:
+  Attempts:            50
+  Rolled back (threw): 50
+  Initial stock:       100
+
+After all failures:
+  Final stock:         100   (expected 100)
+  Orders before:       105
+  Orders after:        105   (expected 105)
+
+Integrity: INTACT — nothing half-applied
+Interpretation:
+  Every failed transaction was rolled back atomically. The stock
+  decrement and the order insert are undone together — never one
+  without the other. The database is exactly as it was before the
+  attempt, proving the operation is all-or-nothing (ACID atomicity)
+  and that this holds under concurrent load.
+
+=== ACID Integrity Proof — SINGLE injected failure ===
+Generated: 2026-06-21T04:34:12.536864486
+
+Composite operation: decrement stock + create order, in ONE @Transactional.
+Failure injected AFTER both writes, BEFORE commit.
+
+Setup:
+  Attempts:            1
+  Rolled back (threw): 1
+  Initial stock:       100
+
+After all failures:
+  Final stock:         100   (expected 100)
+  Orders before:       105
+  Orders after:        105   (expected 105)
+
+Integrity: INTACT — nothing half-applied
+Interpretation:
+  Every failed transaction was rolled back atomically. The stock
+  decrement and the order insert are undone together — never one
+  without the other. The database is exactly as it was before the
+  attempt, proving the operation is all-or-nothing (ACID atomicity)
+  and that this holds under concurrent load.
