@@ -1,0 +1,25 @@
+===== Req 9 — Data integrity after 120-VU stress run =====
+--- 1. Negative stock (must be 0) ---
+ negative_stock 
+----------------
+              0
+(1 row)
+
+--- 2. Orphaned orders: an order with no line items (must be 0) ---
+ orphaned_orders 
+-----------------
+               0
+(1 row)
+
+--- 3. Order items referencing a missing product (must be 0) ---
+ items_missing_product 
+-----------------------
+                     0
+(1 row)
+
+--- 4. Orders whose stored total != sum(items) (must be 0) ---
+ inconsistent_totals 
+---------------------
+                   0
+(1 row)
+

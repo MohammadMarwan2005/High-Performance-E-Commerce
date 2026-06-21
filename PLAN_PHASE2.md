@@ -119,7 +119,7 @@ even under concurrency.
 
 ---
 
-### [ ] Step 4 — Stress-test harness (Req 9)
+### [x] Step 4 — Stress-test harness (Req 9)
 
 **Goal:** Prove 100+ concurrent users are served with no crash and no data loss.
 
