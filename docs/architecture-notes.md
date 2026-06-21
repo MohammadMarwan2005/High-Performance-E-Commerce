@@ -358,3 +358,122 @@ properties: locking decides *who wins* a concurrent race on a row; the
 transaction boundary decides that each winner's multi-step work is *all-or-
 nothing*. Together they give: exactly one order succeeds, and that order is
 fully consistent.
+
+---
+
+## 10. Delivery requirement (a) — AOP performance monitoring
+
+Execution time of the critical operations is measured **without a single line of
+timing code inside the services**, using Spring AOP.
+
+- [`@Timed`](../src/main/java/com/ecommerce/E_Commerce/monitoring/Timed.java) — a
+  marker annotation that selects join points.
+- [`TimingAspect`](../src/main/java/com/ecommerce/E_Commerce/monitoring/TimingAspect.java)
+  — an `@Around` advice that wraps every `@Timed` method, measures wall-clock time
+  with `System.nanoTime()`, and emits one structured line on a dedicated
+  `PERF.TIMING` logger:
+
+  ```
+  op=ProductService.findAll durationMs=1.31 outcome=ok
+  ```
+
+  The `key=value` format is deliberately greppable so the Step-5/7 benchmark can
+  parse it (see the per-op tables in `docs/benchmark/`).
+
+**Why the aspect is ordered `@Order(0)` (outermost).** The product reads are also
+wrapped by the Req-6 `@Cacheable` interceptor. If caching were the outer advice, a
+cache **hit** would return before the timing advice ran, and the timing numbers
+would only ever reflect the slow cache-*miss* path. Making `TimingAspect` the
+highest-precedence advice means it wraps the cache lookup too, so a hit is measured
+end-to-end — which is exactly why the before/after service timings (findAll
+1.31 ms → 0.50 ms) actually show the cache win.
+
+Applied to the critical paths: `ProductService.findAll`, `ProductService.findById`,
+`OrderService.placeOrder`, and the `DailySalesJob` batch run.
+
+---
+
+## 11. Requirement 6 — Distributed caching (Redis)
+
+Redis caching is introduced **specifically as the fix** for the bottleneck the
+Step-5 baseline named: the same small set of product-read queries re-executed tens
+of thousands of times against Postgres (see §12). Config:
+[`CacheConfig`](../src/main/java/com/ecommerce/E_Commerce/config/CacheConfig.java).
+
+### Two caches, two consistency models
+
+| Cache | Backs | TTL | Consistency model | Why |
+|---|---|---|---|---|
+| `productById` | `GET /products/{id}` | 10 min | **Strong** — evicted on every write | The authoritative detail read. Correctness must be exact, and a single id is cheap to evict precisely. |
+| `productPages` | `GET /products?page=…` | **5 s** | **Bounded staleness** — TTL only | The browse listing is the real DB-load win, but a listing spans many `(page,size,sort)` permutations; precisely evicting all of them on every stock change is impractical and the write rate would defeat the cache anyway. A short TTL caps staleness to seconds while still collapsing the redundant reads. |
+
+The split is the key design decision: the **authoritative** read (by id) is never
+stale; the **listing** read accepts a few seconds of staleness — a standard,
+defensible e-commerce pattern (detail pages are exact, category listings are
+near-real-time).
+
+### Invalidation strategy (how the cache stays correct on stock change)
+
+- **Checkout** (`OrderService.placeOrder`) decrements stock, then — *after the
+  transaction commits* — evicts each purchased product id from `productById`. So a
+  detail read right after a sale always reflects the new stock. The checkout path
+  itself never reads from the cache: it loads the row fresh under its optimistic
+  `@Version` / pessimistic `FOR UPDATE` rule (Req 7), so caching can't weaken the
+  oversell guarantee.
+- **Create / bulk seed** (`ProductService.create`, `ProductSeedService.seed`) wipe
+  `productPages` (`allEntries`) because a new product can appear on any listing.
+- **Browse pages** are otherwise left to expire by their 5 s TTL.
+
+**Verified:** a product cached at stock 15, checked out once, is immediately
+re-read as a fresh **14** — no stale stock. Under the 120-VU stress run all four
+integrity assertions stay at 0.
+
+### Serialization & eviction policy
+
+- Cache values use the cache manager's default **JDK serialization**. `Product`
+  implements `Serializable`, which lets both the entity and the
+  `PageImpl<Product>` returned by the browse query round-trip cleanly (this avoids
+  the well-known Jackson `PageImpl` deserialization problem).
+- Redis runs with **`maxmemory 256mb`** and **`allkeys-lru`** (see
+  `docker-compose.yml`): under memory pressure the least-recently-used entries are
+  dropped first — the correct policy for a hot-set read cache — and Redis can never
+  starve the host.
+
+---
+
+## 12. Requirement 10 — Benchmarking & bottleneck analysis
+
+Full write-ups with raw evidence live in `docs/benchmark/`:
+[`baseline.md`](benchmark/baseline.md) (before + named bottleneck) and
+[`comparison.md`](benchmark/comparison.md) (before/after table + interpretation).
+
+**Method.** A single app instance (so Hibernate's statistics counter captures all
+DB load in one place), run from the **same `java -jar` invocation** before and
+after, driven by the same k6 profile (`loadtest/stress.js`: 80% browse / 15% by-id
+/ 5% checkout, ramped to 120 VUs for 70 s). The only variable between the two runs
+is whether caching is on.
+
+**Bottleneck (baseline).** ~698k entity loads in 70 s, **98.7% of them from
+browse-page reads** — the same ~50 page queries re-executed thousands of times.
+Pure read amplification of read-mostly data: the textbook cache target.
+
+**Result with caching (the headline numbers, in one place):**
+
+| Dimension | Before | After | Change |
+|---|---:|---:|---:|
+| JDBC statements / 70 s | 80,040 | 6,010 | **−92.5%** |
+| Entity loads / 70 s | 698,268 | 18,914 | **−97.3%** |
+| Redis hit ratio | — | 98.2% | — |
+| Browse latency p95 | 3.53 ms | 2.13 ms | −39.6% |
+| Overall latency avg | 1.92 ms | 1.13 ms | −41% |
+| `findAll` service time | 1.31 ms | 0.50 ms | −62% |
+| Throughput (120 VUs) | 614.7 req/s | 619.8 req/s | +0.8% |
+
+**Reading the result honestly.** Throughput is flat because the load is
+*closed-loop*: 120 VUs each looping with ~150 ms think-time, so `req/s ≈ VUs ÷
+iteration_duration` and the server isn't the ceiling at this concurrency. The
+cache's payoff is the two things that did move — **~40% lower latency** and **~95%
+of database work eliminated**. That freed DB capacity is headroom: it is the margin
+that lets the system scale to far higher load before the 10-connection Hikari pool
+and Postgres CPU (§2) become the limiting factor — i.e. the cache moves the next
+bottleneck much further out, without sacrificing correctness (§11).

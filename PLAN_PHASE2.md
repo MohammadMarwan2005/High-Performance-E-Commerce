@@ -182,7 +182,7 @@ reflects it correctly (no stale stock).
 
 ---
 
-### [ ] Step 8 — Final documentation pass
+### [x] Step 8 — Final documentation pass
 
 **Goal:** Tie Phase 1 + Phase 2 together for the final evaluation.
 
@@ -200,12 +200,12 @@ system (both phases) from the docs alone.
 
 ## Definition of Done for Phase 2
 
-- [ ] Requirements 6–10 implemented and individually demonstrable.
-- [ ] AOP performance-monitoring aspect in place (delivery req a).
-- [ ] Optimistic vs pessimistic trade-off documented (Req 7).
-- [ ] ACID rollback demonstrated under concurrency (Req 8).
-- [ ] Stress test proves 100+ users, no data loss (Req 9).
-- [ ] Before/after benchmark table with a named bottleneck (Req 10).
-- [ ] Redis caching shown as the measured fix (Req 6).
-- [ ] Each step committed by me, message `✅ <step name>`, no AI authorship.
-- [ ] Everything runs from `docker compose` for the local→server move.
+- [x] Requirements 6–10 implemented and individually demonstrable.
+- [x] AOP performance-monitoring aspect in place (delivery req a).
+- [x] Optimistic vs pessimistic trade-off documented (Req 7).
+- [x] ACID rollback demonstrated under concurrency (Req 8).
+- [x] Stress test proves 100+ users, no data loss (Req 9).
+- [x] Before/after benchmark table with a named bottleneck (Req 10).
+- [x] Redis caching shown as the measured fix (Req 6).
+- [x] Each step committed by me, message `✅ <step name>`, no AI authorship.
+- [x] Everything runs from `docker compose` for the local→server move.
