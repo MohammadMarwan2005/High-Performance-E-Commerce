@@ -45,9 +45,9 @@ CONFLICT=$(echo "$CODES" | grep -c '^409$' || true)
 BADREQ=$(echo "$CODES"  | grep -c '^400$' || true)
 OTHER=$(echo "$CODES"   | grep -vcE '^(201|409|400)$' || true)
 
-# 4) Read final stock back
-FINAL_STOCK=$(curl -fsS "$BASE/products" \
-  | jq -r --arg id "$PRODUCT_ID" '.[] | select(.id == ($id|tonumber)) | .stockQuantity')
+# 4) Read final stock back (single-product endpoint — robust regardless of
+#    catalog size or list pagination)
+FINAL_STOCK=$(curl -fsS "$BASE/products/$PRODUCT_ID" | jq -r '.stockQuantity')
 
 echo
 echo "================ RESULT ================"
