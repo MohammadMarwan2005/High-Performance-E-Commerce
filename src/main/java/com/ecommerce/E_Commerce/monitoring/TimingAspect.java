@@ -5,6 +5,7 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
@@ -25,6 +26,11 @@ import org.springframework.stereotype.Component;
  */
 @Aspect
 @Component
+// Outermost advice (highest precedence) so timing wraps the @Cacheable
+// interceptor too: a Req-6 cache HIT is still measured end-to-end, which is what
+// makes the before/after service timings reflect the cache win rather than only
+// timing the slow cache-miss path.
+@Order(0)
 public class TimingAspect {
 
     // Dedicated logger so timing lines are easy to isolate / route to a file.

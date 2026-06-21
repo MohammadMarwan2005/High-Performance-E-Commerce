@@ -27,6 +27,15 @@ spring:
         generate_statistics: true
     open-in-view: false
 
+  # Req 6 — distributed cache backend. Lettuce connects lazily, so the app still
+  # starts if Redis is briefly unavailable; cache misses simply fall through to
+  # the database. Override host per-instance via SPRING_DATA_REDIS_HOST.
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      timeout: 2000ms
+
   rabbitmq:
     host: localhost
     port: 5672

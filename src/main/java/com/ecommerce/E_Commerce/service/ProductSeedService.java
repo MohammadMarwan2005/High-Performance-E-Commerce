@@ -1,5 +1,7 @@
 package com.ecommerce.E_Commerce.service;
 
+import com.ecommerce.E_Commerce.config.CacheConfig;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -23,7 +25,14 @@ public class ProductSeedService {
         this.jdbc = jdbc;
     }
 
-    /** Inserts {@code count} randomized products. Returns rows actually inserted. */
+    /**
+     * Inserts {@code count} randomized products. Returns rows actually inserted.
+     *
+     * <p>Bulk-inserting new products invalidates every browse listing, so the
+     * page cache is wiped (Req 6). It writes via raw JDBC, so no productById
+     * entries can exist yet for the new ids.
+     */
+    @CacheEvict(cacheNames = CacheConfig.PRODUCT_PAGES, allEntries = true)
     public int seed(int count) {
         int n = Math.max(1, Math.min(count, MAX_SEED));
         return jdbc.update(

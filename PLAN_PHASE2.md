@@ -151,7 +151,7 @@ even under concurrency.
 
 ---
 
-### [ ] Step 6 — Distributed caching with Redis (Req 6 — the fix)
+### [x] Step 6 — Distributed caching with Redis (Req 6 — the fix)
 
 **Goal:** Cache hot products to reduce direct DB queries.
 

@@ -1,5 +1,7 @@
 package com.ecommerce.E_Commerce.service;
 
+import com.ecommerce.E_Commerce.config.CacheConfig;
+import com.ecommerce.E_Commerce.dto.OrderItemRequest;
 import com.ecommerce.E_Commerce.dto.PlaceOrderRequest;
 import com.ecommerce.E_Commerce.entity.Order;
 import com.ecommerce.E_Commerce.messaging.OrderPlacedEvent;
@@ -9,6 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -23,6 +27,7 @@ public class OrderService {
     private final OrderCheckoutTransaction checkoutTransaction;
     private final PessimisticOrderCheckout pessimisticCheckout;
     private final RabbitTemplate rabbitTemplate;
+    private final CacheManager cacheManager;
 
     @Value("${app.rabbitmq.exchange}")
     private String exchange;
@@ -37,10 +42,12 @@ public class OrderService {
 
     public OrderService(OrderCheckoutTransaction checkoutTransaction,
                         PessimisticOrderCheckout pessimisticCheckout,
-                        RabbitTemplate rabbitTemplate) {
+                        RabbitTemplate rabbitTemplate,
+                        CacheManager cacheManager) {
         this.checkoutTransaction = checkoutTransaction;
         this.pessimisticCheckout = pessimisticCheckout;
         this.rabbitTemplate = rabbitTemplate;
+        this.cacheManager = cacheManager;
     }
 
     @Timed("OrderService.placeOrder")
@@ -49,11 +56,28 @@ public class OrderService {
                 ? placePessimistic(request)
                 : placeOptimistic(request);
 
+        // Req 6 cache correctness: the checkout above committed a stock decrement,
+        // so any cached single-product view of those ids is now stale. Evict them
+        // (post-commit) so the authoritative productById read never serves old
+        // stock. The browse-page cache is intentionally left to expire by its
+        // short TTL — see CacheConfig for why precise page eviction is impractical.
+        evictCheckedOutProducts(request);
+
         // Publish-after-commit (both paths commit inside their execute() call
         // before returning here): a rolled-back order never triggers messaging.
         rabbitTemplate.convertAndSend(exchange, routingKey, new OrderPlacedEvent(order.getId()));
         log.info("OrderPlaced event published for order #{} (strategy={})", order.getId(), strategy);
         return order;
+    }
+
+    private void evictCheckedOutProducts(PlaceOrderRequest request) {
+        Cache cache = cacheManager.getCache(CacheConfig.PRODUCT_BY_ID);
+        if (cache == null) {
+            return;
+        }
+        for (OrderItemRequest item : request.items()) {
+            cache.evict(item.productId());
+        }
     }
 
     // Optimistic path (Phase 1): bounded retry on version conflict.

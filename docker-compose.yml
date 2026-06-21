@@ -33,6 +33,22 @@ services:
     ports:
       - "127.0.0.1:8081:8080"
 
+  # Req 6 — distributed cache backend. allkeys-lru so that under memory pressure
+  # the least-recently-used product entries are evicted first (right policy for a
+  # hot-set read cache); maxmemory caps Redis so it can never starve the host.
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce-redis
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: ecommerce-rabbitmq
@@ -66,6 +82,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ecommerce}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
@@ -74,6 +92,7 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-guest}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-guest}
+      SPRING_DATA_REDIS_HOST: redis
       INSTANCE_ID: app1
       JAVA_OPTS: "-Xms256m -Xmx512m"
     ports:
@@ -90,6 +109,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ecommerce}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
@@ -98,6 +119,7 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-guest}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-guest}
+      SPRING_DATA_REDIS_HOST: redis
       INSTANCE_ID: app2
       JAVA_OPTS: "-Xms256m -Xmx512m"
     ports:
