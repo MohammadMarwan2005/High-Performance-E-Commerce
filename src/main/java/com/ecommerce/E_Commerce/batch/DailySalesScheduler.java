@@ -1,5 +1,6 @@
 package com.ecommerce.E_Commerce.batch;
 
+import com.ecommerce.E_Commerce.monitoring.Timed;
 import java.time.LocalDate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +29,7 @@ public class DailySalesScheduler {
     // Demo: runs every 30 seconds so results are visible immediately.
     // Production setting: @Scheduled(cron = "0 0 1 * * *")  — 01:00 AM nightly.
     @Scheduled(fixedDelay = 30_000)
+    @Timed("DailySalesJob.run")
     public void runDailySalesJob() {
         String today = LocalDate.now().toString();
         // run.id makes each execution a distinct JobInstance so the same

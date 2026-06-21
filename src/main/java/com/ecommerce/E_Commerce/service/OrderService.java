@@ -3,6 +3,7 @@ package com.ecommerce.E_Commerce.service;
 import com.ecommerce.E_Commerce.dto.PlaceOrderRequest;
 import com.ecommerce.E_Commerce.entity.Order;
 import com.ecommerce.E_Commerce.messaging.OrderPlacedEvent;
+import com.ecommerce.E_Commerce.monitoring.Timed;
 import jakarta.persistence.OptimisticLockException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +39,7 @@ public class OrderService {
     // transaction inside checkoutTransaction.execute(...). If we wrapped the
     // whole loop in @Transactional, an optimistic-lock failure would mark the
     // outer transaction rollback-only and the retry would corrupt JPA state.
+    @Timed("OrderService.placeOrder")
     public Order placeOrder(PlaceOrderRequest request) {
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {

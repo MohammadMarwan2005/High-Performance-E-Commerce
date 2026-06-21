@@ -38,6 +38,14 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-amqp</artifactId>
 		</dependency>
+		<!-- AspectJ weaver enables @Aspect/@Around advice. Spring Boot 4 dropped
+		     the dedicated spring-boot-starter-aop; Spring's AOP proxy support is
+		     already on the classpath via the other starters, so the weaver alone
+		     (version managed by the Boot BOM) is what we add. -->
+		<dependency>
+			<groupId>org.aspectj</groupId>
+			<artifactId>aspectjweaver</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-batch</artifactId>

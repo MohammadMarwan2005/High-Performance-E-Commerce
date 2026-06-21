@@ -2,6 +2,7 @@ package com.ecommerce.E_Commerce.service;
 
 import com.ecommerce.E_Commerce.dto.CreateProductRequest;
 import com.ecommerce.E_Commerce.entity.Product;
+import com.ecommerce.E_Commerce.monitoring.Timed;
 import com.ecommerce.E_Commerce.repository.ProductRepository;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class ProductService {
         return productRepository.save(product);
     }
 
+    @Timed("ProductService.findAll")
     public List<Product> findAll() {
         return productRepository.findAll();
     }
