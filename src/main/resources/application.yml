@@ -50,6 +50,11 @@ server:
 
 app:
   instance-id: ${INSTANCE_ID:local}
+  # Req 7 — checkout concurrency-control strategy: "optimistic" (@Version + retry)
+  # or "pessimistic" (SELECT ... FOR UPDATE). Override per-instance via
+  # APP_CHECKOUT_STRATEGY without a rebuild.
+  checkout:
+    strategy: ${APP_CHECKOUT_STRATEGY:optimistic}
   rabbitmq:
     exchange: orders
     invoice-queue: orders.invoice

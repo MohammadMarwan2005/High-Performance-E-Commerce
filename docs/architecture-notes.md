@@ -255,3 +255,66 @@ To keep this file honest about what is and isn't tuned:
   `RequestAttributes`. That's fine for the work it currently does
   (Step 5 invoice/notification publishing); a different use case would
   need `DelegatingSecurityContextAsyncTaskExecutor` or similar.
+
+---
+
+## 8. Requirement 7 — Concurrency Control: optimistic vs pessimistic
+
+Both locking strategies are implemented for the same stock-decrement operation
+and are selectable at runtime via `app.checkout.strategy`
+(`optimistic` | `pessimistic`, env var `APP_CHECKOUT_STRATEGY`). Phase 1 shipped
+optimistic; Phase 2 adds the pessimistic path and the comparison.
+
+### The two implementations
+
+| | Optimistic (default) | Pessimistic |
+|---|---|---|
+| Mechanism | `@Version` on `Product` | `SELECT … FOR UPDATE` |
+| Code | [OrderCheckoutTransaction](../src/main/java/com/ecommerce/E_Commerce/service/OrderCheckoutTransaction.java) | [PessimisticOrderCheckout](../src/main/java/com/ecommerce/E_Commerce/service/PessimisticOrderCheckout.java) |
+| Repository | plain `findById` | [`findByIdForUpdate`](../src/main/java/com/ecommerce/E_Commerce/repository/ProductRepository.java) (`@Lock(PESSIMISTIC_WRITE)`) |
+| Lock held? | No — conflict detected at flush (`WHERE … AND version=?`) | Yes — row locked for the whole transaction |
+| On conflict | retry (bounded, 3×) | no conflict — contenders **block** on the lock |
+
+### The trade-off
+
+**Optimistic wins under LOW contention.** No lock is taken, so the common case
+(two requests rarely touching the same row) pays zero locking cost. The price is
+paid only *when* a conflict happens — and then it's a retry. If conflicts are
+rare, retries are rare, and throughput is maximal.
+
+**Pessimistic wins under HIGH contention.** When many requests fight over the
+*same* row (a flash sale on one product), optimistic locking degrades: every
+loser retries, and under heavy contention retries themselves conflict, wasting
+work (the "retry storm"). Pessimistic locking serializes access up front — each
+contender waits once, then succeeds or fails cleanly. No wasted work, but the
+cost is real DB locks held for the transaction's duration, which reduces
+parallelism and risks lock waits / deadlocks if not handled.
+
+### Why optimistic is the default here
+
+The realistic workload is many *different* products being bought concurrently
+(low per-row contention), with only occasional hotspots. That profile favors
+optimistic. Pessimistic is provided for the case the brief asks us to reason
+about: sustained contention on a single hot row.
+
+### Deadlock avoidance (pessimistic path)
+
+`PessimisticOrderCheckout` locks an order's products in a **consistent order
+(ascending product id)**. Two orders touching products {A, B} both lock A before
+B, so a hold-and-wait cycle (A waits for B while B waits for A) is impossible.
+This is the standard lock-ordering defense against deadlock.
+
+### Proof
+
+`docs/req7-locking/optimistic-vs-pessimistic.txt` — a 50-thread race on a
+stock-1 product under all three modes:
+
+| Mode | Successful orders | Final stock | Oversell |
+|---|---|---|---|
+| naive (no lock) | 6 | 0 | **YES** |
+| optimistic (`@Version` + retry) | 1 | 0 | no |
+| pessimistic (`SELECT … FOR UPDATE`) | 1 | 0 | no |
+
+Both locking strategies hold the invariant; they differ in *how* (retry vs
+block), which is exactly the trade-off above. Regenerate any time via
+`POST /proofs/req1/concurrency` with `{"mode":"both"}`.

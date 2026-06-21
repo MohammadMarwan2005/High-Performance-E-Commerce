@@ -30,15 +30,18 @@ public class ConcurrencyProofService {
 
     private final NaiveCheckoutService naive;
     private final LockedCheckoutService locked;
+    private final PessimisticCheckoutService pessimistic;
     private final ProductRepository productRepository;
     private final JdbcTemplate jdbc;
 
     public ConcurrencyProofService(NaiveCheckoutService naive,
                                    LockedCheckoutService locked,
+                                   PessimisticCheckoutService pessimistic,
                                    ProductRepository productRepository,
                                    JdbcTemplate jdbc) {
         this.naive = naive;
         this.locked = locked;
+        this.pessimistic = pessimistic;
         this.productRepository = productRepository;
         this.jdbc = jdbc;
     }
@@ -63,6 +66,16 @@ public class ConcurrencyProofService {
             out.append(report(
                     "WITH optimistic locking + retry",
                     "LockedCheckoutService (@Version on Product, 3 retries)",
+                    threads, initialStock, quantityEach, stats));
+        }
+
+        if (mode.equals("pessimistic") || mode.equals("both")) {
+            if (out.length() > 0) out.append("\n");
+            Long productId = resetDemoProduct(initialStock);
+            Stats stats = race(productId, threads, quantityEach, pessimistic::purchase);
+            out.append(report(
+                    "WITH pessimistic locking (SELECT ... FOR UPDATE)",
+                    "PessimisticCheckoutService (row lock, no retry)",
                     threads, initialStock, quantityEach, stats));
         }
 

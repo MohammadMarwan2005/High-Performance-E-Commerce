@@ -15,7 +15,7 @@ public record ConcurrencyProofRequest(
     public static final int DEFAULT_THREADS = 50;
     public static final int DEFAULT_INITIAL_STOCK = 1;
     public static final int DEFAULT_QUANTITY_EACH = 1;
-    public static final String DEFAULT_MODE = "both"; // both | naive | locked
+    public static final String DEFAULT_MODE = "both"; // both | naive | locked | pessimistic
 
     public static final int MAX_THREADS = 500;
 
@@ -38,7 +38,7 @@ public record ConcurrencyProofRequest(
         if (mode == null) return DEFAULT_MODE;
         String m = mode.trim().toLowerCase();
         return switch (m) {
-            case "naive", "locked", "both" -> m;
+            case "naive", "locked", "pessimistic", "both" -> m;
             default -> DEFAULT_MODE;
         };
     }

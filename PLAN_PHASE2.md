@@ -84,7 +84,7 @@ sensible durations.
 
 ---
 
-### [ ] Step 2 — Concurrency control: optimistic vs pessimistic (Req 7)
+### [x] Step 2 — Concurrency control: optimistic vs pessimistic (Req 7)
 
 **Goal:** Apply and compare both locking strategies on inventory updates.
 

@@ -1,0 +1,62 @@
+=== Concurrency Proof — WITHOUT optimistic locking ===
+Generated: 2026-06-21T04:11:43.819169166
+Mode:      NaiveCheckoutService (raw SQL, no @Version)
+
+Setup:
+  Threads:        50 (concurrent)
+  Initial stock:  1
+  Quantity each:  1
+  Total demand:   50
+  Available:      1
+
+Result:
+  Successful orders:   6
+  Failed (no stock):   44
+  Failed (conflict):   0
+  Failed (other):      0
+  Final stock:         0
+  Elapsed:             46 ms
+
+Oversell:  YES — bug demonstrated
+
+=== Concurrency Proof — WITH optimistic locking + retry ===
+Generated: 2026-06-21T04:11:43.89417774
+Mode:      LockedCheckoutService (@Version on Product, 3 retries)
+
+Setup:
+  Threads:        50 (concurrent)
+  Initial stock:  1
+  Quantity each:  1
+  Total demand:   50
+  Available:      1
+
+Result:
+  Successful orders:   1
+  Failed (no stock):   49
+  Failed (conflict):   0
+  Failed (other):      0
+  Final stock:         0
+  Elapsed:             31 ms
+
+Oversell:  NO — invariant held
+
+=== Concurrency Proof — WITH pessimistic locking (SELECT ... FOR UPDATE) ===
+Generated: 2026-06-21T04:11:43.97428476
+Mode:      PessimisticCheckoutService (row lock, no retry)
+
+Setup:
+  Threads:        50 (concurrent)
+  Initial stock:  1
+  Quantity each:  1
+  Total demand:   50
+  Available:      1
+
+Result:
+  Successful orders:   1
+  Failed (no stock):   49
+  Failed (conflict):   0
+  Failed (other):      0
+  Final stock:         0
+  Elapsed:             50 ms
+
+Oversell:  NO — invariant held

@@ -21,6 +21,7 @@ public class OrderService {
     private static final int MAX_ATTEMPTS = 3;
 
     private final OrderCheckoutTransaction checkoutTransaction;
+    private final PessimisticOrderCheckout pessimisticCheckout;
     private final RabbitTemplate rabbitTemplate;
 
     @Value("${app.rabbitmq.exchange}")
@@ -29,29 +30,42 @@ public class OrderService {
     @Value("${app.rabbitmq.routing-key}")
     private String routingKey;
 
+    // Req 7 selector: "optimistic" (default, @Version + retry) or "pessimistic"
+    // (SELECT ... FOR UPDATE). Switch via app.checkout.strategy without a rebuild.
+    @Value("${app.checkout.strategy:optimistic}")
+    private String strategy;
+
     public OrderService(OrderCheckoutTransaction checkoutTransaction,
+                        PessimisticOrderCheckout pessimisticCheckout,
                         RabbitTemplate rabbitTemplate) {
         this.checkoutTransaction = checkoutTransaction;
+        this.pessimisticCheckout = pessimisticCheckout;
         this.rabbitTemplate = rabbitTemplate;
     }
 
-    // NOT @Transactional on purpose. Each attempt below opens its own
-    // transaction inside checkoutTransaction.execute(...). If we wrapped the
-    // whole loop in @Transactional, an optimistic-lock failure would mark the
-    // outer transaction rollback-only and the retry would corrupt JPA state.
     @Timed("OrderService.placeOrder")
     public Order placeOrder(PlaceOrderRequest request) {
+        Order order = "pessimistic".equalsIgnoreCase(strategy)
+                ? placePessimistic(request)
+                : placeOptimistic(request);
+
+        // Publish-after-commit (both paths commit inside their execute() call
+        // before returning here): a rolled-back order never triggers messaging.
+        rabbitTemplate.convertAndSend(exchange, routingKey, new OrderPlacedEvent(order.getId()));
+        log.info("OrderPlaced event published for order #{} (strategy={})", order.getId(), strategy);
+        return order;
+    }
+
+    // Optimistic path (Phase 1): bounded retry on version conflict.
+    //
+    // NOT wrapped in @Transactional on purpose — each attempt opens its own
+    // transaction inside checkoutTransaction.execute(...). A single outer
+    // transaction would be marked rollback-only on the first conflict, and the
+    // retry would corrupt JPA state.
+    private Order placeOptimistic(PlaceOrderRequest request) {
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
-                // checkoutTransaction.execute() is @Transactional with no outer
-                // transaction, so its commit happens before this line returns.
-                // Publishing here is therefore guaranteed publish-after-commit:
-                // a rolled-back order never triggers invoice or notification.
-                Order order = checkoutTransaction.execute(request);
-                rabbitTemplate.convertAndSend(exchange, routingKey,
-                        new OrderPlacedEvent(order.getId()));
-                log.info("OrderPlaced event published for order #{}", order.getId());
-                return order;
+                return checkoutTransaction.execute(request);
             } catch (ObjectOptimisticLockingFailureException | OptimisticLockException e) {
                 log.warn("optimistic lock conflict on placeOrder (attempt {}/{}): {}",
                         attempt, MAX_ATTEMPTS, e.getMessage());
@@ -62,5 +76,11 @@ public class OrderService {
             }
         }
         throw new IllegalStateException("unreachable");
+    }
+
+    // Pessimistic path (Req 7): the row is locked with SELECT ... FOR UPDATE, so
+    // concurrent checkouts serialize on the lock. No conflict, no retry — one call.
+    private Order placePessimistic(PlaceOrderRequest request) {
+        return pessimisticCheckout.execute(request);
     }
 }
