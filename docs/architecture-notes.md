@@ -434,7 +434,7 @@ integrity assertions stay at 0.
   implements `Serializable`, which lets both the entity and the
   `PageImpl<Product>` returned by the browse query round-trip cleanly (this avoids
   the well-known Jackson `PageImpl` deserialization problem).
-- Redis runs with **`maxmemory 256mb`** and **`allkeys-lru`** (see
+- Redis runs with **`maxmemory 64mb`** and **`allkeys-lru`** (see
   `docker-compose.yml`): under memory pressure the least-recently-used entries are
   dropped first — the correct policy for a hot-set read cache — and Redis can never
   starve the host.
