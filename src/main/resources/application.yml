@@ -23,6 +23,8 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+        # Req 10 benchmark — expose query/statement counters via /admin/db-stats
+        generate_statistics: true
     open-in-view: false
 
   rabbitmq:

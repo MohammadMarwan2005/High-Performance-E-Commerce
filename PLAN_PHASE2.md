@@ -136,7 +136,7 @@ even under concurrency.
 
 ---
 
-### [ ] Step 5 — Baseline benchmark + bottleneck identification (Req 10a)
+### [x] Step 5 — Baseline benchmark + bottleneck identification (Req 10a)
 
 **Goal:** Capture the "before" numbers and name the bottleneck.
 
